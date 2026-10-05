@@ -132,6 +132,7 @@ out vec4 fragColor;
 
 float HALF_W = 390.0;  // width of one half; the hinge sits at x = HALF_W
 float RADIUS = 46.0;   // body corner radius, pt
+float THICK = 26.0;    // body thickness at the free edge, pt (~4.3 mm)
 float AA = 1.1;        // silhouette smoothing, pt
 
 // Rounded-box SDF, y-down centered coords, per-corner radii (top-R, bottom-R, top-L, bottom-L).
@@ -174,6 +175,39 @@ void main() {
     vec3 col = vec3(0.0);
     float alpha = 0.0;
 
+    // Screen power state, like a real foldable: the inner display wakes early in
+    // the opening (fully lit by ~95 degrees), and the cover display dozes off
+    // just after you start to open. Both fades ride the same angle.
+    float powerOn = smoothstep(2.36, 1.66, phi);
+    float coverOn = smoothstep(2.88, 2.36, phi);
+
+    // Free-edge side face: the body's thickness. Its plane contains the leaf's
+    // free edge and runs along the leaf axis; normal (-s, 0, c) through the edge.
+    float alphaSide = 0.0;
+    vec3 sideCol = vec3(0.0);
+    if (abs(denom) > 1e-5 && s > 0.02) {
+        float tSide = (c * eye.z - s * (eye.x - HALF_W)) / denom;
+        if (tSide > 0.0) {
+            vec3 Ps = eye + v * tSide;
+            // distance along the leaf axis from the surface edge: u in [0, THICK]
+            float u = (Ps.x - HALF_W - HALF_W * c) * c + (Ps.z - HALF_W * s) * s;
+            if (u >= 0.0 && u <= THICK && Ps.y >= 0.0 && Ps.y <= uSize.y) {
+                // rounded corners taper the edge away at the top and bottom
+                float yN = (Ps.y - uSize.y * 0.5) / (uSize.y * 0.5 - RADIUS);
+                float roundA = clamp(1.0 - yN * yN, 0.0, 1.0);
+                float rim = 0.30 + 0.55 * smoothstep(0.35, 1.0, u / THICK);
+                sideCol = vec3(rim * 0.40, rim * 0.40, rim * 0.44);
+                alphaSide = roundA;
+            }
+        }
+    }
+
+    if (alphaSide > 0.0) {
+        // the outermost surface along this ray is the metal edge itself
+        fragColor = vec4(sideCol * alphaSide, alphaSide);
+        return;
+    }
+
     // Depth: the leaf wins when it is strictly in front, when it has folded past
     // vertical (lying on top of the base), or when the pixel is beyond the hinge
     // where the base half does not exist at all — otherwise at phi = 0 (fully
@@ -182,22 +216,27 @@ void main() {
         vec2 uv;
         if (c > 0.0) {
             // Front face: inner content is glued to the leaf; at phi = 0 it lines up
-            // seamlessly with the base half. Mip bias hides minification shimmer.
+            // seamlessly with the base half. Mip bias hides minification shimmer and
+            // motion-blurs the content a touch while the fold is moving fast.
             uv = vec2(HALF_W + d, yLeaf) / uSize;
-            vec3 c3 = texture(uInner, uv, clamp(log2(1.0 / max(c, 0.12)), 0.0, 4.0)).rgb;
+            float bias = clamp(log2(1.0 / max(c, 0.12)) + log2(1.0 + abs(uFoldVel) * 0.10), 0.0, 5.0);
+            vec3 c3 = texture(uInner, uv, bias).rgb;
             float x01 = d / HALF_W;
             c3 *= 1.0 - 0.10 * (1.0 - c) * x01;
             // A soft sheen sweeps across the glass while it moves, and rests as a
             // barely-there ambient reflection when the phone is still.
             float band = HALF_W * (0.22 + 0.78 * clamp(1.0 - phi / 1.5707963, 0.0, 1.0));
             c3 += vec3(exp(-pow((d - band) / 52.0, 2.0)) * (0.03 + 0.22 * motion) * (0.3 + 0.7 * s));
+            c3 = mix(vec3(0.012), c3, powerOn); // inner display wakes as the fold opens
             col = c3;
             col *= 1.0 - 0.14 * exp(-pow(d / 3.5, 2.0));  // hinge groove on the leaf side
         } else {
             // Back face: the cover screen, glued mirrored (its left edge is the leaf's free edge).
             uv = vec2((HALF_W - d) / HALF_W, yLeaf / uSize.y);
-            vec3 c3 = texture(uCover, uv, clamp(log2(1.0 / max(-c, 0.12)), 0.0, 4.0)).rgb;
+            float bias = clamp(log2(1.0 / max(-c, 0.12)) + log2(1.0 + abs(uFoldVel) * 0.10), 0.0, 5.0);
+            vec3 c3 = texture(uCover, uv, bias).rgb;
             c3 *= 1.0 - 0.05 * s;
+            c3 = mix(vec3(0.012), c3, coverOn); // cover display dozes off as opening starts
             c3 += vec3(exp(-pow((d - HALF_W * 0.5) / 90.0, 2.0)) * 0.07 * motion);
             col = c3;
             col *= 1.0 - 0.12 * exp(-pow((HALF_W - d) / 3.5, 2.0));  // groove at the hinge edge
@@ -214,6 +253,7 @@ void main() {
         alpha = 1.0 - smoothstep(-AA, AA, sdB);
         if (alpha > 0.0) {
             col = texture(uInner, plane / uSize).rgb;
+            col = mix(vec3(0.012), col, powerOn); // inner display wakes as the fold opens
             col *= mix(1.0, 0.10, smoothstep(-7.0, -1.0, sdB));
             // permanent crease shading at the hinge
             col *= 1.0 - 0.08 * exp(-pow((plane.x - HALF_W) / 9.0, 2.0));

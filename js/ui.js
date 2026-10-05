@@ -241,202 +241,150 @@ export function renderInner(widthPt, heightPt, scale, wallpaper) {
     return canvas;
   }
 
-  const W = 780, H = 844, PAD = 24, COL_W = 355, GUT = (W - PAD * 2 - COL_W * 2) / 2;
-  const LX = PAD, RX = PAD + COL_W + GUT;
-  const BG = '#f2f2f7', CARD = '#ffffff', SECONDARY = '#8e8e93';
-
-  ctx.fillStyle = BG;
+  // --- iOS home screen on a dark Apple-style wallpaper ---------------------
+  const W = 780, H = 844;
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#171a23');
+  bg.addColorStop(0.55, '#0d0f16');
+  bg.addColorStop(1, '#07080c');
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // header spans the full width
-  ctx.fillStyle = SECONDARY;
-  ctx.font = `500 13px ${SYSTEM_FONT}`;
-  ctx.fillText('10月5日 周一', PAD, 26);
-  ctx.fillStyle = '#000';
-  ctx.font = `700 34px ${SYSTEM_FONT}`;
-  ctx.fillText('今天', PAD, 60);
-  ctx.fillStyle = '#8e8e93';
-  ctx.beginPath();
-  ctx.arc(W - PAD - 22, 40, 22, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = `600 16px ${SYSTEM_FONT}`;
-  ctx.textAlign = 'center';
-  ctx.fillText('Duo', W - PAD - 22, 45);
-  ctx.textAlign = 'left';
-
-  // chips
-  const chips = ['All', 'Health', 'Work', 'Reading', 'Travel', 'Music', 'Focus'];
-  let cx = PAD;
-  for (let i = 0; i < chips.length; i++) {
-    ctx.font = `600 13px ${SYSTEM_FONT}`;
-    const w = ctx.measureText(chips[i]).width + 28;
-    ctx.fillStyle = i === 0 ? '#007aff' : '#e9e9ee';
-    roundRect(ctx, cx, 76, w, 32, 16);
-    ctx.fill();
-    ctx.fillStyle = i === 0 ? '#fff' : '#1c1c1e';
-    ctx.fillText(chips[i], cx + 14, 97);
-    cx += w + 8;
+  // soft organic light, the way iOS dark wallpapers do it: two restrained glows
+  let g = ctx.createRadialGradient(W * 0.24, H * 0.18, 20, W * 0.24, H * 0.18, W * 0.7);
+  g.addColorStop(0, 'rgba(94, 110, 148, 0.30)');
+  g.addColorStop(1, 'rgba(94, 110, 148, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  g = ctx.createRadialGradient(W * 0.8, H * 0.72, 20, W * 0.8, H * 0.72, W * 0.75);
+  g.addColorStop(0, 'rgba(120, 100, 78, 0.20)');
+  g.addColorStop(1, 'rgba(120, 100, 78, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  // dither so the dark gradients don't band on the GPU
+  for (let i = 0; i < 2200; i++) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.022})`;
+    ctx.fillRect(Math.random() * W, Math.random() * H, 1.3, 1.3);
   }
 
-  // ---- left column: hero card + recent list ------------------------------
-  let y = 128;
-  const lines = ['Tilt… or rather: unfold it.', 'Drag the phone and the right half swings open around the hinge. The interface stays put in space while each half renders what you would see through tilted frosted glass.'];
-  ctx.font = `400 13px ${SYSTEM_FONT}`;
-  let textLines = [];
-  for (const para of lines) textLines.push(...wrapText(ctx, para, COL_W - 36));
-  const maxBarH = 18 + (11 * 37) % 46;
-  const heroH = 50 + textLines.length * 18 + maxBarH + 26;
-  ctx.fillStyle = '#1c1c1e';
-  roundRect(ctx, LX, y, COL_W, heroH, 20);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = `700 17px ${SYSTEM_FONT}`;
-  ctx.fillText('✦ Frosted glass fold', LX + 18, y + 30);
-  ctx.textAlign = 'right';
-  ctx.fillText('↗', LX + COL_W - 18, y + 30);
-  ctx.textAlign = 'left';
-  ctx.font = `400 13px ${SYSTEM_FONT}`;
-  ctx.globalAlpha = 0.92;
-  let by = y + 54;
-  for (const line of textLines) { ctx.fillText(line, LX + 18, by); by += 18; }
-  ctx.globalAlpha = 1;
-  const bars = 10, barW = (COL_W - 36 - (bars - 1) * 6) / bars;
-  for (let i = 0; i < bars; i++) {
-    const bh = 18 + (i * 37) % 46;
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    roundRect(ctx, LX + 18 + i * (barW + 6), y + heroH - 18 - bh, barW, bh, 3);
-    ctx.fill();
-  }
-
-  // recent list
-  y += heroH + 16;
-  ctx.fillStyle = '#000';
-  ctx.font = `600 20px ${SYSTEM_FONT}`;
-  ctx.fillText('Recent', LX, y);
-  y += 12;
-  const rows = [
-    ['🏃', '#34c759', 'Morning run', '5.2 km · 27 min'],
-    ['📅', '#ff3b30', 'Design review', '10:30 · Room 4B'],
-    ['✈️', '#007aff', 'Flight to Lisbon', 'Fri 18:45 · Gate 22'],
-    ['📖', '#a2845e', 'Read 20 pages', 'The Left Hand of Darkness'],
-    ['🎧', '#5e5ce6', 'Listening', 'Glass Dreams · Duo'],
-  ];
-  const rowH = 56;
-  ctx.fillStyle = CARD;
-  roundRect(ctx, LX, y, COL_W, rows.length * rowH, 16);
-  ctx.fill();
-  rows.forEach(([icon, tint, title, sub], i) => {
-    const ry = y + i * rowH;
-    ctx.fillStyle = tint;
-    roundRect(ctx, LX + 14, ry + 11, 34, 34, 8);
-    ctx.fill();
-    ctx.font = `400 17px ${SYSTEM_FONT}`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(icon, LX + 14 + 17, ry + 34);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#000';
-    ctx.font = `500 15px ${SYSTEM_FONT}`;
-    ctx.fillText(title, LX + 60, ry + 25);
-    ctx.fillStyle = SECONDARY;
-    ctx.font = `400 12px ${SYSTEM_FONT}`;
-    ctx.fillText(sub, LX + 60, ry + 43);
-    if (i < rows.length - 1) {
-      ctx.strokeStyle = 'rgba(60,60,67,0.12)';
-      ctx.lineWidth = 0.7;
-      ctx.beginPath();
-      ctx.moveTo(LX + 60, ry + rowH);
-      ctx.lineTo(LX + COL_W, ry + rowH);
-      ctx.stroke();
-    }
-  });
-
-  // ---- right column: stat tiles + now playing + calendar -----------------
-  y = 128;
-  const tileW = (COL_W - 12) / 2, tileH = 76;
-  const tiles = [
-    ['🚶', 'Steps', '8,412', '#34c759'],
-    ['🌙', 'Sleep', '7h 20m', '#5e5ce6'],
-    ['🧠', 'Focus', '3h 05m', '#ff9500'],
-    ['💧', 'Water', '1.8 L', '#32ade6'],
-  ];
-  tiles.forEach(([icon, title, value, tint], i) => {
-    const tx = RX + (i % 2) * (tileW + 12);
-    const ty = y + Math.floor(i / 2) * (tileH + 12);
-    ctx.fillStyle = CARD;
-    roundRect(ctx, tx, ty, tileW, tileH, 16);
-    ctx.fill();
-    ctx.font = `400 17px ${SYSTEM_FONT}`;
-    ctx.fillStyle = tint;
-    ctx.fillText(icon, tx + 14, ty + 24);
-    ctx.fillStyle = SECONDARY;
-    ctx.font = `500 13px ${SYSTEM_FONT}`;
-    ctx.fillText(title, tx + 40, ty + 23);
-    ctx.fillStyle = '#000';
-    ctx.font = `600 22px ${SYSTEM_FONT}`;
-    ctx.fillText(value, tx + 14, ty + 58);
-  });
-
-  // now playing card
-  y += tileH * 2 + 12 + 16;
-  const npH = 110;
-  ctx.fillStyle = '#1c1c1e';
-  roundRect(ctx, RX, y, COL_W, npH, 18);
-  ctx.fill();
-  ctx.fillStyle = '#2c2c2e';
-  ctx.beginPath();
-  ctx.arc(RX + 26, y + 36, 22, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(RX + 26, y + 36, 14, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
+  // status bar
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.font = `600 15px ${SYSTEM_FONT}`;
-  ctx.fillText('Glass Dreams', RX + 60, y + 30);
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.font = `400 12px ${SYSTEM_FONT}`;
-  ctx.fillText('Duo — Liquid Interfaces', RX + 60, y + 50);
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  roundRect(ctx, RX + 20, y + 74, COL_W - 40, 4, 2);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  roundRect(ctx, RX + 20, y + 74, (COL_W - 40) * 0.42, 4, 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(RX + 20 + (COL_W - 40) * 0.42, y + 76, 5.5, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillText('9:41', 44, 26);
+  ctx.textAlign = 'right';
+  ctx.font = `500 13px ${SYSTEM_FONT}`;
+  ctx.fillText('\u25B4\u25BE\u25B4  \u{1F50B}', W - 44, 26); // signal bars + battery
+  ctx.textAlign = 'left';
 
-  // calendar card
-  y += npH + 16;
-  const calH = H - y - PAD;
-  ctx.fillStyle = CARD;
-  roundRect(ctx, RX, y, COL_W, calH, 16);
-  ctx.fill();
-  ctx.fillStyle = '#ff3b30';
-  ctx.font = `600 12px ${SYSTEM_FONT}`;
-  ctx.fillText('FRIDAY', RX + 16, y + 24);
-  ctx.fillStyle = '#000';
-  ctx.font = `700 26px ${SYSTEM_FONT}`;
-  ctx.fillText('Design review', RX + 16, y + 54);
-  ctx.fillStyle = SECONDARY;
-  ctx.font = `400 13px ${SYSTEM_FONT}`;
-  ctx.fillText('10:30 – 11:15 · Room 4B', RX + 16, y + 76);
-  for (let i = 0; i < 3; i++) {
-    const ey = y + 96 + i * 30;
-    ctx.fillStyle = i === 0 ? '#007aff' : ['#34c759', '#ff9500'][i - 1];
-    roundRect(ctx, RX + 16, ey, 4, 20, 2);
-    ctx.fill();
-    ctx.fillStyle = '#1c1c1e';
-    ctx.font = `500 13px ${SYSTEM_FONT}`;
-    ctx.fillText(['Team standup', '1:1 with Lin', 'Prototype review'][i], RX + 30, ey + 14);
-    ctx.fillStyle = SECONDARY;
-    ctx.textAlign = 'right';
-    ctx.fillText(['09:30', '14:00', '16:30'][i], RX + COL_W - 16, ey + 14);
+  // icon grid: 6 columns whose gutter straddles the hinge at x = 390
+  const ICON = 70, STEP = 114, MARGIN = 70, ROW0 = 64, ROWSTEP = 104;
+  const ICONS = [
+    ['⚙️', '#d8d8dc', 'Settings'], ['CAL', '#ffffff', 'Calendar'], ['PHOTOS', '#ffffff', 'Photos'],
+    ['📷', '#3a3a3c', 'Camera'], ['✉️', '#0a84ff', 'Mail'], ['📝', '#ffffff', 'Notes'],
+    ['CLOCK', '#0f0f12', 'Clock'], ['🌤️', '#4a7fc9', 'Weather'], ['🗺️', '#e8f3ec', 'Maps'],
+    ['☑️', '#ffffff', 'Reminders'], ['📈', '#0f0f12', 'Stocks'], ['📖', '#fdf6e6', 'Books'],
+    ['APP', '#0a84ff', 'App Store'], ['❤️', '#ffffff', 'Health'], ['👛', '#0f0f12', 'Wallet'],
+    ['🏠', '#f2f2f7', 'Home'], ['🎙️', '#8944ab', 'Podcasts'], ['🏃', '#0f0f12', 'Fitness'],
+    ['📹', '#35c759', 'FaceTime'], ['📁', '#0a84ff', 'Files'], ['🧮', '#0f0f12', 'Calculator'],
+    ['🌐', '#0a84ff', 'Translate'], ['🎤', '#0f0f12', 'Voice Memos'], ['⌚', '#0f0f12', 'Watch'],
+  ];
+  const label = (text, x, y) => {
+    ctx.font = `500 11.5px ${SYSTEM_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(text, x, y);
+    ctx.shadowBlur = 0;
     ctx.textAlign = 'left';
+  };
+  const drawAppIcon = (def, x, y, size) => {
+    const [glyph, color, name] = def;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 9;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = color;
+    roundRect(ctx, x, y, size, size, size * 0.235);
+    ctx.fill();
+    ctx.restore();
+    if (glyph === 'CAL') {
+      ctx.fillStyle = '#ff3b30';
+      ctx.font = `600 11px ${SYSTEM_FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('FRIDAY', x + size / 2, y + 18);
+      ctx.fillStyle = '#1c1c1e';
+      ctx.font = `300 38px ${SYSTEM_FONT}`;
+      ctx.fillText('5', x + size / 2, y + 55);
+      ctx.textAlign = 'left';
+    } else if (glyph === 'PHOTOS') {
+      const petals = ['#f5493d', '#f78200', '#fbbc04', '#7ac74f', '#3aa757', '#4a9de8', '#6a5acd', '#e8506e'];
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        ctx.fillStyle = petals[i];
+        ctx.beginPath();
+        ctx.ellipse(x + size / 2 + Math.cos(a) * 10, y + size / 2 + Math.sin(a) * 10, 9.5, 5.2, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (glyph === 'CLOCK') {
+      ctx.fillStyle = '#f5f5f7';
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, size * 0.36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1c1c1e';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x + size / 2, y + size / 2);
+      ctx.lineTo(x + size / 2 + 10, y + size / 2 - 12); // 10:09 hands
+      ctx.moveTo(x + size / 2, y + size / 2);
+      ctx.lineTo(x + size / 2 - 14, y + size / 2 + 6);
+      ctx.stroke();
+    } else if (glyph === 'APP') {
+      ctx.fillStyle = '#fff';
+      ctx.font = `700 38px ${SYSTEM_FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('A', x + size / 2, y + size / 2 + 13);
+      ctx.textAlign = 'left';
+    } else {
+      ctx.font = `400 ${size * 0.52}px ${SYSTEM_FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(glyph, x + size / 2, y + size / 2 + size * 0.18);
+      ctx.textAlign = 'left';
+    }
+    label(name, x + size / 2, y + size + 15);
+  };
+  ICONS.forEach((def, i) => {
+    const col = i % 6, row = Math.floor(i / 6);
+    drawAppIcon(def, MARGIN + col * STEP, ROW0 + row * ROWSTEP, ICON);
+  });
+
+  // page dots
+  for (let i = 0; i < 5; i++) {
+    ctx.fillStyle = i === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.arc(W / 2 - 28 + i * 14, 676, 3.2, 0, Math.PI * 2);
+    ctx.fill();
   }
+
+  // dock
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  roundRect(ctx, 26, H - 128, W - 52, 104, 36);
+  ctx.fill();
+  const dock = [
+    ['📞', '#35c759'], ['🧭', '#f5f5f7'], ['💬', '#35c759'], ['🎵', '#fa233b'],
+  ];
+  dock.forEach((def, i) => {
+    const [glyph, color] = def;
+    const x = 208 + i * 98, y = H - 114;
+    ctx.fillStyle = color;
+    roundRect(ctx, x, y, ICON, ICON, ICON * 0.235);
+    ctx.fill();
+    ctx.font = `400 ${ICON * 0.52}px ${SYSTEM_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(glyph, x + ICON / 2, y + ICON / 2 + ICON * 0.18);
+    ctx.textAlign = 'left';
+  });
+
   return canvas;
 }
 

@@ -1,6 +1,6 @@
 import { FoldRenderer } from './fold.js';
 import { TiltController, FoldController } from './motion.js';
-import { renderLayer, renderInner, renderCover } from './ui.js';
+import { renderLayer, renderLock, renderHome, renderCover } from './ui.js';
 
 const DUO_SIZE = { w: 780, h: 844 };
 const COVER_SIZE = { w: 390, h: 844 };
@@ -28,6 +28,8 @@ let foldCtl;
 let appMode = 'tilt';
 let wallpaper = null;
 let lastLayerKey = '';
+let morphEased = 0;   // lagging copy of fold progress driving the Duo morph
+let unlockT = 0;      // lock -> home crossfade after fully opening
 
 const isCoarse = matchMedia('(pointer: coarse)').matches;
 
@@ -76,7 +78,8 @@ function rebuildTextures() {
     const be = Math.max(1, Math.round(cssW * scale)) / DUO_SIZE.w;
     renderer.setSize(DUO_SIZE.w, DUO_SIZE.h, be);
     renderer.setDuoTextures(
-      renderInner(DUO_SIZE.w, DUO_SIZE.h, be, wallpaper),
+      renderLock(DUO_SIZE.w, DUO_SIZE.h, be),
+      renderHome(DUO_SIZE.w, DUO_SIZE.h, be),
       renderCover(COVER_SIZE.w, COVER_SIZE.h, be),
     );
     lastLayerKey = `duo@${be.toFixed(3)}`;
@@ -194,8 +197,7 @@ function start() {
   window.__renderer = renderer;
   window.__renderOnce = () => renderFrame(0.016);
   window.__renderSettled = (steps = 240) => {
-    for (let i = 0; i < steps; i++) foldCtl.update(1 / 60);
-    renderFrame(0.016);
+    for (let i = 0; i < steps; i++) renderFrame(1 / 60);
   };
 
   rebuildTextures();
@@ -207,13 +209,22 @@ function start() {
   const renderFrame = (dt) => {
     if (appMode === 'duo') {
       foldCtl.update(dt);
+      const fold01 = Math.max(0, Math.min(1, foldCtl.fold));
+      // the Duo morph lags the hinge slightly, like the UI catching up
+      morphEased += (fold01 - morphEased) * Math.min(1, dt * 5);
+      // re-lock the moment closing starts
+      if (fold01 < 0.97) unlockT = 0;
+      else if (fold01 >= 0.995 && morphEased > 0.985) unlockT = Math.min(1, unlockT + dt / 0.7);
+      const unlock = unlockT * unlockT * (3 - 2 * unlockT);
       const phi = Math.PI * (1 - foldCtl.fold);
       const foldVel = -Math.PI * foldCtl.vel; // d(phi)/dt, rad/s
       // keep the phone centered: the camera pans with the device's visual span
       const right = phi < Math.PI / 2 ? COVER_SIZE.w * (1 + Math.cos(phi)) : COVER_SIZE.w;
       const targetEyeX = right / 2;
       renderer.eyeX = (renderer.eyeX ?? targetEyeX) + (targetEyeX - (renderer.eyeX ?? targetEyeX)) * Math.min(1, dt * 7);
-      renderer.drawDuo(phi, renderer.eyeX, foldVel);
+      const contentZoom = 1.45 - 0.45 * morphEased;
+      const worldZoom = 1.28 - 0.28 * morphEased;
+      renderer.drawDuo(phi, renderer.eyeX, foldVel, contentZoom, unlock, worldZoom);
       syncFoldUI();
     } else {
       tiltCtl.update(dt);

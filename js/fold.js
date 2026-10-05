@@ -119,14 +119,18 @@ float rotation = hash21(position) * TWO_PI;
 export const DUO_FRAG_SRC = `#version 300 es
 precision highp float;
 
-uniform sampler2D uInner;   // unfolded inner screen, 780 x 844 pt
-uniform sampler2D uCover;   // cover screen, 390 x 844 pt
+uniform sampler2D uLock;    // lock screen (wallpaper + clock), 780 x 844 pt
+uniform sampler2D uHome;    // home screen (post-unlock), 780 x 844 pt
+uniform sampler2D uCover;   // cover lock screen, 390 x 844 pt
 uniform vec2  uSize;        // (780, 844) pt
 uniform float uScale;
 uniform float uFold;        // fold angle, radians: 0 = fully open, PI = fully folded
 uniform float uFoldVel;     // angular velocity of the fold, rad/s (drives the glass sheen)
 uniform float uEyeX;
 uniform float uEyeDist;
+uniform float uContentZoom; // the Duo morph: inner content un-zooms as it opens (>1 = zoomed)
+uniform float uUnlock;      // 0 = lock screen, 1 = home screen (animated after opening)
+uniform float uWorldZoom;   // camera dolly fake: >1 renders the device larger
 
 out vec4 fragColor;
 
@@ -152,8 +156,9 @@ void main() {
     vec3 eye = vec3(uEyeX, uSize.y * 0.5, uEyeDist);
     // The canvas is a viewport centered on the eye, not plane coordinates:
     // as the camera pans to keep the half-open phone centered, the plane
-    // point seen at each pixel shifts with it.
-    vec2 plane = eye.xy + (position - uSize * 0.5);
+    // point seen at each pixel shifts with it. uWorldZoom dollies the camera
+    // so the closed phone reads larger in the hand than the open tablet.
+    vec2 plane = eye.xy + (position - uSize * 0.5) / uWorldZoom;
     vec3 v = vec3(plane - eye.xy, -eye.z);
 
     // --- intersection with the leaf plane (rotated around the hinge line) ---
@@ -224,13 +229,18 @@ void main() {
     // open, exactly coplanar) the right half of the phone would vanish.
     if (leafHit && (tLeaf < 1.0 - 1e-4 || plane.x > HALF_W || c < 0.0)) {
         vec2 uv;
-        if (c > 0.0) {
+        if (denom > 0.0) {
             // Front face: inner content is glued to the leaf; at phi = 0 it lines up
             // seamlessly with the base half. Mip bias hides minification shimmer and
             // motion-blurs the content a touch while the fold is moving fast.
+            // The Duo morph: the interface un-zooms from the cover's framing as the
+            // fold opens, and the lock screen crossfades into home after unlocking.
             uv = vec2(HALF_W + d, yLeaf) / uSize;
             float bias = clamp(log2(1.0 / max(c, 0.12)) + log2(1.0 + abs(uFoldVel) * 0.10), 0.0, 5.0);
-            vec3 c3 = texture(uInner, uv, bias).rgb;
+            vec2 uvZoom = vec2(0.5) + (uv - vec2(0.5)) / uContentZoom;
+            vec3 lockC = texture(uLock, uvZoom, bias).rgb;
+            vec3 homeC = texture(uHome, uv + vec2(0.0, (1.0 - uUnlock) * 0.05), bias).rgb;
+            vec3 c3 = mix(lockC, homeC, uUnlock);
             float x01 = d / HALF_W;
             c3 *= 1.0 - 0.10 * (1.0 - c) * x01;
             // A soft sheen sweeps across the glass while it moves, and rests as a
@@ -262,7 +272,11 @@ void main() {
         float sdB = sdRoundBox(bp, vec2(HALF_W * 0.5, uSize.y * 0.5), 0.0, 0.0, RADIUS, RADIUS);
         alpha = 1.0 - smoothstep(-AA, AA, sdB);
         if (alpha > 0.0) {
-            col = texture(uInner, plane / uSize).rgb;
+            vec2 uvInner = plane / uSize;
+            vec2 uvZoom = vec2(0.5) + (uvInner - vec2(0.5)) / uContentZoom;
+            vec3 lockC = texture(uLock, uvZoom).rgb;
+            vec3 homeC = texture(uHome, uvInner + vec2(0.0, (1.0 - uUnlock) * 0.05)).rgb;
+            col = mix(lockC, homeC, uUnlock);
             col = mix(vec3(0.012), col, powerOn); // inner display wakes as the fold opens
             col *= mix(1.0, 0.10, smoothstep(-7.0, -1.0, sdB));
             // permanent crease shading at the hinge
@@ -313,7 +327,8 @@ export class FoldRenderer {
 
     this.duoProgram = this.#buildProgram(VERT_SRC, DUO_FRAG_SRC);
     this.duoUniforms = {
-      inner: gl.getUniformLocation(this.duoProgram, 'uInner'),
+      lock: gl.getUniformLocation(this.duoProgram, 'uLock'),
+      home: gl.getUniformLocation(this.duoProgram, 'uHome'),
       cover: gl.getUniformLocation(this.duoProgram, 'uCover'),
       size: gl.getUniformLocation(this.duoProgram, 'uSize'),
       scale: gl.getUniformLocation(this.duoProgram, 'uScale'),
@@ -321,10 +336,14 @@ export class FoldRenderer {
       foldVel: gl.getUniformLocation(this.duoProgram, 'uFoldVel'),
       eyeX: gl.getUniformLocation(this.duoProgram, 'uEyeX'),
       eye: gl.getUniformLocation(this.duoProgram, 'uEyeDist'),
+      contentZoom: gl.getUniformLocation(this.duoProgram, 'uContentZoom'),
+      unlock: gl.getUniformLocation(this.duoProgram, 'uUnlock'),
+      worldZoom: gl.getUniformLocation(this.duoProgram, 'uWorldZoom'),
     };
 
     this.texture = this.#makeTexture(gl.LINEAR);
-    this.innerTex = this.#makeTexture(gl.LINEAR_MIPMAP_LINEAR);
+    this.lockTex = this.#makeTexture(gl.LINEAR_MIPMAP_LINEAR);
+    this.homeTex = this.#makeTexture(gl.LINEAR_MIPMAP_LINEAR);
     this.coverTex = this.#makeTexture(gl.LINEAR_MIPMAP_LINEAR);
 
     gl.useProgram(this.program);
@@ -334,7 +353,8 @@ export class FoldRenderer {
     gl.uniform1f(this.uniforms.eye, this.parameters.eyeDistanceMillimeters * this.parameters.pointsPerMillimeter);
 
     gl.useProgram(this.duoProgram);
-    gl.uniform1i(this.duoUniforms.inner, 0);
+    gl.uniform1i(this.duoUniforms.lock, 0);
+    gl.uniform1i(this.duoUniforms.home, 2);
     gl.uniform1i(this.duoUniforms.cover, 1);
     gl.uniform1f(this.duoUniforms.eye, this.parameters.eyeDistanceMillimeters * this.parameters.pointsPerMillimeter);
   }
@@ -385,9 +405,10 @@ export class FoldRenderer {
     gl.generateMipmap(gl.TEXTURE_2D);
   }
 
-  /** Uploads the unfolded inner screen and the cover screen for the Duo mode. */
-  setDuoTextures(innerSource, coverSource) {
-    this.#uploadMipped(this.innerTex, innerSource);
+  /** Uploads the lock/home inner screens and the cover screen for the Duo mode. */
+  setDuoTextures(lockSource, homeSource, coverSource) {
+    this.#uploadMipped(this.lockTex, lockSource);
+    this.#uploadMipped(this.homeTex, homeSource);
     this.#uploadMipped(this.coverTex, coverSource);
   }
 
@@ -414,20 +435,25 @@ export class FoldRenderer {
   }
 
   /** Renders the Duo book-fold. phi: 0 = fully open, PI = fully folded. foldVel: rad/s. */
-  drawDuo(phi, eyeX, foldVel = 0) {
+  drawDuo(phi, eyeX, foldVel = 0, contentZoom = 1, unlock = 0, worldZoom = 1) {
     const gl = this.gl;
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(this.duoProgram);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.innerTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.lockTex);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.coverTex);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.homeTex);
     gl.uniform2f(this.duoUniforms.size, this.sizePt[0], this.sizePt[1]);
     gl.uniform1f(this.duoUniforms.scale, this.scale);
     gl.uniform1f(this.duoUniforms.fold, phi);
     gl.uniform1f(this.duoUniforms.foldVel, foldVel);
     gl.uniform1f(this.duoUniforms.eyeX, eyeX);
+    gl.uniform1f(this.duoUniforms.contentZoom, contentZoom);
+    gl.uniform1f(this.duoUniforms.unlock, unlock);
+    gl.uniform1f(this.duoUniforms.worldZoom, worldZoom);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 }

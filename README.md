@@ -1,5 +1,8 @@
 # DuoLike Web — iPhone Duo 折叠动画 · 跨平台 WebGL 移植版
 
+> **⚠️ 半成品 / Work in Progress** — 项目仍在快速迭代，动效、交互和纹理随时会改，已知有若干待打磨的细节。
+> **Still a work in progress**: under active iteration — animations, interactions and textures may change at any time.
+
 Cross-platform WebGL2 port of [DuoLikeAnimation](https://github.com/elijah-semyonov/DuoLikeAnimation) —
 the frosted-glass "fold" effect that mimics the iPhone Duo's folding animation, rebuilt so it runs
 on **Android phones, Windows / macOS / Linux desktops and iPhones** from one zero-build static page.

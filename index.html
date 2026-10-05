@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a10">
+<title>DuoLike Web — iPhone Duo 折叠动画 · WebGL 移植版</title>
+<meta name="description" content="Cross-platform WebGL port of DuoLikeAnimation: the iPhone Duo frosted-glass fold effect driven by device tilt on Android/iOS and mouse flicks on Windows.">
+<style>.boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#8a8a95;font:15px system-ui;background:#0a0a10}</style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="boot" id="boot">正在初始化 WebGL…</div>
+
+<canvas id="gl" aria-label="Duo fold effect viewport"></canvas>
+
+<div id="hint" class="hint" hidden></div>
+
+<div class="panel" id="panel" hidden>
+  <button id="btnMotion" class="chip accent" hidden>启用体感</button>
+  <button id="btnCalibrate" class="chip" hidden title="把当前姿态设为零位 / set current pose as zero tilt">校准</button>
+  <label id="manualBox" class="chip manual" hidden>
+    <span>手动</span>
+    <input id="slider" type="range" min="-80" max="80" step="1" value="0" aria-label="manual tilt degrees">
+    <b id="sliderVal">0°</b>
+  </label>
+  <label class="chip file" title="替换界面内容 / replace the interface texture">
+    壁纸
+    <input id="file" type="file" accept="image/*">
+  </label>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

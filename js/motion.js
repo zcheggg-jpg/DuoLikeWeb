@@ -321,9 +321,10 @@ export class FoldController {
       const rect = el.getBoundingClientRect();
       const next = clamp01(this.#startFold + (e.clientX - this.#startX) / (rect.width * 0.8));
       const now = performance.now();
-      const dt = (now - this.#lastMoveT) / 1000;
-      if (dt > 0 && dt < 0.15) this.#dragVel = 0.6 * this.#dragVel + 0.4 * ((next - this.fold) / dt);
-      else if (dt >= 0.15) this.#dragVel = 0;
+      // clamp the sample interval: coalesced pointer events arrive with tiny dt
+      // and would fabricate enormous velocities (false flicks)
+      const dt = Math.max(0.008, (now - this.#lastMoveT) / 1000);
+      this.#dragVel = 0.6 * this.#dragVel + 0.4 * ((next - this.fold) / dt);
       this.#lastMoveT = now;
       this.fold = next;
     });
@@ -331,9 +332,11 @@ export class FoldController {
       if (!this.dragging) return;
       this.dragging = false;
       el.classList.remove('dragging');
-      // flick: a fast swipe snaps the hinge; otherwise spring to the nearer rest
-      if (this.#dragVel > 1.1) this.setTarget(1);
-      else if (this.#dragVel < -1.1) this.setTarget(0);
+      // Real foldables have a friction hinge: a deliberate flick snaps open or
+      // shut, but letting go mid-fold just holds the angle where you left it.
+      if (this.#dragVel > 2.2) this.setTarget(1);
+      else if (this.#dragVel < -2.2) this.setTarget(0);
+      else if (this.fold > 0.22 && this.fold < 0.78) this.setTarget(this.fold);
       else this.setTarget(this.fold > 0.5 ? 1 : 0);
     };
     el.addEventListener('pointerup', release);

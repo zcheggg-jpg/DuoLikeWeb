@@ -212,9 +212,10 @@ function start() {
       const fold01 = Math.max(0, Math.min(1, foldCtl.fold));
       // the Duo morph lags the hinge slightly, like the UI catching up
       morphEased += (fold01 - morphEased) * Math.min(1, dt * 5);
-      // re-lock the moment closing starts
-      if (fold01 < 0.97) unlockT = 0;
-      else if (fold01 >= 0.995 && morphEased > 0.985) unlockT = Math.min(1, unlockT + dt / 0.7);
+      // re-lock smoothly the moment closing starts - a hard reset here would
+      // swap the whole screen content in one frame (the flash)
+      if (fold01 >= 0.995 && morphEased > 0.9) unlockT = Math.min(1, unlockT + dt / 0.7);
+      else if (fold01 < 0.99) unlockT = Math.max(0, unlockT - dt * 5);
       const unlock = unlockT * unlockT * (3 - 2 * unlockT);
       const phi = Math.PI * (1 - foldCtl.fold);
       const foldVel = -Math.PI * foldCtl.vel; // d(phi)/dt, rad/s

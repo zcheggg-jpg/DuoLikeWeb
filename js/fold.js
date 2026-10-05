@@ -175,11 +175,12 @@ void main() {
     vec3 col = vec3(0.0);
     float alpha = 0.0;
 
-    // Screen power state, like a real foldable: the inner display wakes early in
-    // the opening (fully lit by ~95 degrees), and the cover display dozes off
-    // just after you start to open. Both fades ride the same angle.
-    float powerOn = smoothstep(2.36, 1.66, phi);
-    float coverOn = smoothstep(2.36, 2.88, phi);
+    // Screen power state, like a real foldable - but with no dark valley: the
+    // inner display stays lit until the leaf actually covers it (dims only a
+    // little under the closing half), and the cover wakes as soon as its back
+    // swings past vertical. A snap-close therefore never blinks to black.
+    float powerOn = 0.55 + 0.45 * smoothstep(2.75, 2.50, phi);
+    float coverOn = 0.25 + 0.75 * smoothstep(1.75, 2.20, phi);
 
     // Free-edge side face: the body's thickness. Its plane contains the leaf's
     // free edge and runs along the leaf axis; normal (-s, 0, c) through the edge.
@@ -201,7 +202,9 @@ void main() {
                 float roundA = clamp(1.0 - yN * yN, 0.0, 1.0);
                 float rim = 0.30 + 0.55 * smoothstep(0.35, 1.0, u / THICK);
                 sideCol = vec3(rim * 0.40, rim * 0.40, rim * 0.44);
-                alphaSide = roundA;
+                // fade out as the edge turns away, so the vanishing at ~175
+                // degrees never pops
+                alphaSide = roundA * smoothstep(0.0, 80.0, facing);
             }
         }
     }

@@ -179,15 +179,19 @@ void main() {
     // the opening (fully lit by ~95 degrees), and the cover display dozes off
     // just after you start to open. Both fades ride the same angle.
     float powerOn = smoothstep(2.36, 1.66, phi);
-    float coverOn = smoothstep(2.88, 2.36, phi);
+    float coverOn = smoothstep(2.36, 2.88, phi);
 
     // Free-edge side face: the body's thickness. Its plane contains the leaf's
     // free edge and runs along the leaf axis; normal (-s, 0, c) through the edge.
+    // Only rendered while the edge actually faces the viewer and the hit lands in
+    // front of the base plane: the plane's infinite extension otherwise ghosts a
+    // detached titanium strip just outside the silhouette near both fold ends.
     float alphaSide = 0.0;
     vec3 sideCol = vec3(0.0);
-    if (abs(denom) > 1e-5 && s > 0.02) {
+    float facing = c * (eye.x - HALF_W * (1.0 + c)) + s * (eye.z - HALF_W * s);
+    if (abs(denom) > 1e-5 && s > 0.02 && facing > 0.0) {
         float tSide = (c * eye.z - s * (eye.x - HALF_W)) / denom;
-        if (tSide > 0.0) {
+        if (tSide > 0.0 && tSide <= 1.0) {
             vec3 Ps = eye + v * tSide;
             // distance along the leaf axis from the surface edge: u in [0, THICK]
             float u = (Ps.x - HALF_W - HALF_W * c) * c + (Ps.z - HALF_W * s) * s;

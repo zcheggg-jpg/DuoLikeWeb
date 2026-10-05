@@ -202,9 +202,12 @@ void main() {
                 float roundA = clamp(1.0 - yN * yN, 0.0, 1.0);
                 float rim = 0.30 + 0.55 * smoothstep(0.35, 1.0, u / THICK);
                 sideCol = vec3(rim * 0.40, rim * 0.40, rim * 0.44);
-                // fade out as the edge turns away, so the vanishing at ~175
-                // degrees never pops
-                alphaSide = roundA * smoothstep(0.0, 80.0, facing);
+                // Two guards against grazing-angle garbage: near ~175 degrees the
+                // side plane runs parallel to the view rays and the per-pixel hit
+                // shatters into a rippled comb (the "flash"), so the edge fades
+                // out before that zone and also as its facing turns away.
+                alphaSide = roundA * smoothstep(0.0, 80.0, facing)
+                          * (1.0 - smoothstep(2.845, 2.932, phi));
             }
         }
     }

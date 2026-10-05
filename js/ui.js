@@ -53,10 +53,7 @@ export function drawDemoUI(ctx, W, H) {
 
   // avatar
   const ax = W - PAD - 44, ay = y + 6;
-  const grad = ctx.createLinearGradient(ax, ay, ax + 44, ay + 44);
-  grad.addColorStop(0, '#ff2d78');
-  grad.addColorStop(1, '#ff9500');
-  ctx.fillStyle = grad;
+  ctx.fillStyle = '#8e8e93';
   ctx.beginPath();
   ctx.arc(ax + 22, ay + 22, 22, 0, Math.PI * 2);
   ctx.fill();
@@ -77,7 +74,7 @@ export function drawDemoUI(ctx, W, H) {
   for (let i = 0; i < chips.length; i++) {
     ctx.font = `600 13px ${SYSTEM_FONT}`;
     const w = ctx.measureText(chips[i]).width + 28;
-    ctx.fillStyle = i === 0 ? '#4f7cff' : '#e9e9ee';
+    ctx.fillStyle = i === 0 ? '#007aff' : '#e9e9ee';
     roundRect(ctx, cx, y, w, 32, 16);
     ctx.fill();
     ctx.fillStyle = i === 0 ? '#fff' : '#1c1c1e';
@@ -92,11 +89,7 @@ export function drawDemoUI(ctx, W, H) {
   const heroLines = wrapText(ctx, 'Tilt the phone around its vertical axis. The interface stays put in space while the screen becomes a tilted pane of frosted glass.', W - PAD * 2 - 36);
   const maxBarH = 18 + (11 * 37) % 46;
   const heroH = 50 + heroLines.length * 18 + maxBarH + 26;
-  const hero = ctx.createLinearGradient(PAD, y, W - PAD, y + heroH);
-  hero.addColorStop(0, '#2f6bff');
-  hero.addColorStop(0.55, '#8b5cf6');
-  hero.addColorStop(1, '#ec4899');
-  ctx.fillStyle = hero;
+  ctx.fillStyle = '#1c1c1e';
   roundRect(ctx, PAD, y, W - PAD * 2, heroH, 20);
   ctx.fill();
 
@@ -162,7 +155,7 @@ export function drawDemoUI(ctx, W, H) {
   const rows = [
     ['🏃', '#34c759', 'Morning run', '5.2 km · 27 min'],
     ['📅', '#ff3b30', 'Design review', '10:30 · Room 4B'],
-    ['✈️', '#2f6bff', 'Flight to Lisbon', 'Fri 18:45 · Gate 22'],
+    ['✈️', '#007aff', 'Flight to Lisbon', 'Fri 18:45 · Gate 22'],
     ['📖', '#a2845e', 'Read 20 pages', 'The Left Hand of Darkness'],
   ];
   const rowH = 56;
@@ -262,10 +255,7 @@ export function renderInner(widthPt, heightPt, scale, wallpaper) {
   ctx.fillStyle = '#000';
   ctx.font = `700 34px ${SYSTEM_FONT}`;
   ctx.fillText('今天', PAD, 60);
-  const grad = ctx.createLinearGradient(W - PAD - 44, 18, W - PAD, 62);
-  grad.addColorStop(0, '#ff2d78');
-  grad.addColorStop(1, '#ff9500');
-  ctx.fillStyle = grad;
+  ctx.fillStyle = '#8e8e93';
   ctx.beginPath();
   ctx.arc(W - PAD - 22, 40, 22, 0, Math.PI * 2);
   ctx.fill();
@@ -281,7 +271,7 @@ export function renderInner(widthPt, heightPt, scale, wallpaper) {
   for (let i = 0; i < chips.length; i++) {
     ctx.font = `600 13px ${SYSTEM_FONT}`;
     const w = ctx.measureText(chips[i]).width + 28;
-    ctx.fillStyle = i === 0 ? '#4f7cff' : '#e9e9ee';
+    ctx.fillStyle = i === 0 ? '#007aff' : '#e9e9ee';
     roundRect(ctx, cx, 76, w, 32, 16);
     ctx.fill();
     ctx.fillStyle = i === 0 ? '#fff' : '#1c1c1e';
@@ -297,11 +287,7 @@ export function renderInner(widthPt, heightPt, scale, wallpaper) {
   for (const para of lines) textLines.push(...wrapText(ctx, para, COL_W - 36));
   const maxBarH = 18 + (11 * 37) % 46;
   const heroH = 50 + textLines.length * 18 + maxBarH + 26;
-  const hero = ctx.createLinearGradient(LX, y, LX + COL_W, y + heroH);
-  hero.addColorStop(0, '#2f6bff');
-  hero.addColorStop(0.55, '#8b5cf6');
-  hero.addColorStop(1, '#ec4899');
-  ctx.fillStyle = hero;
+  ctx.fillStyle = '#1c1c1e';
   roundRect(ctx, LX, y, COL_W, heroH, 20);
   ctx.fill();
   ctx.fillStyle = '#fff';
@@ -332,7 +318,7 @@ export function renderInner(widthPt, heightPt, scale, wallpaper) {
   const rows = [
     ['🏃', '#34c759', 'Morning run', '5.2 km · 27 min'],
     ['📅', '#ff3b30', 'Design review', '10:30 · Room 4B'],
-    ['✈️', '#2f6bff', 'Flight to Lisbon', 'Fri 18:45 · Gate 22'],
+    ['✈️', '#007aff', 'Flight to Lisbon', 'Fri 18:45 · Gate 22'],
     ['📖', '#a2845e', 'Read 20 pages', 'The Left Hand of Darkness'],
     ['🎧', '#5e5ce6', 'Listening', 'Glass Dreams · Duo'],
   ];
@@ -395,19 +381,18 @@ export function renderInner(widthPt, heightPt, scale, wallpaper) {
   // now playing card
   y += tileH * 2 + 12 + 16;
   const npH = 110;
-  const np = ctx.createLinearGradient(RX, y, RX + COL_W, y + npH);
-  np.addColorStop(0, '#1c1c22');
-  np.addColorStop(1, '#3a2d4d');
-  ctx.fillStyle = np;
+  ctx.fillStyle = '#1c1c1e';
   roundRect(ctx, RX, y, COL_W, npH, 18);
   ctx.fill();
-  const disc = ctx.createRadialGradient(RX + 24, y + 34, 4, RX + 24, y + 34, 26);
-  disc.addColorStop(0, '#8b5cf6');
-  disc.addColorStop(1, '#1c1c28');
-  ctx.fillStyle = disc;
+  ctx.fillStyle = '#2c2c2e';
   ctx.beginPath();
   ctx.arc(RX + 26, y + 36, 22, 0, Math.PI * 2);
   ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(RX + 26, y + 36, 14, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.fillStyle = '#fff';
   ctx.font = `600 15px ${SYSTEM_FONT}`;
   ctx.fillText('Glass Dreams', RX + 60, y + 30);
@@ -441,7 +426,7 @@ export function renderInner(widthPt, heightPt, scale, wallpaper) {
   ctx.fillText('10:30 – 11:15 · Room 4B', RX + 16, y + 76);
   for (let i = 0; i < 3; i++) {
     const ey = y + 96 + i * 30;
-    ctx.fillStyle = i === 0 ? '#4f7cff' : ['#34c759', '#ff9500'][i - 1];
+    ctx.fillStyle = i === 0 ? '#007aff' : ['#34c759', '#ff9500'][i - 1];
     roundRect(ctx, RX + 16, ey, 4, 20, 2);
     ctx.fill();
     ctx.fillStyle = '#1c1c1e';
@@ -465,20 +450,18 @@ export function renderCover(widthPt, heightPt, scale) {
   ctx.scale(scale, scale);
   const W = widthPt, H = heightPt;
 
-  const bg = ctx.createLinearGradient(0, 0, W * 0.4, H);
-  bg.addColorStop(0, '#101016');
-  bg.addColorStop(0.5, '#0a0a10');
-  bg.addColorStop(1, '#14141d');
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0b0b0e');
+  bg.addColorStop(1, '#050506');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // soft aurora glow
-  const glow = ctx.createRadialGradient(W * 0.7, H * 0.22, 10, W * 0.7, H * 0.22, W * 0.9);
-  glow.addColorStop(0, 'rgba(79,124,255,0.20)');
-  glow.addColorStop(0.55, 'rgba(139,92,246,0.08)');
-  glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
+  // a whisper of top light, like glass catching a window
+  const sheen = ctx.createLinearGradient(0, 0, 0, H * 0.5);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.05)');
+  sheen.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, W, H * 0.5);
 
   // camera punch hole, top-left (free edge side)
   ctx.fillStyle = '#000';
@@ -512,8 +495,8 @@ export function renderCover(widthPt, heightPt, scale) {
   roundRect(ctx, W / 2 - 130, cardY, 260, 64, 18);
   ctx.stroke();
   const icon = ctx.createLinearGradient(W / 2 - 114, cardY + 12, W / 2 - 82, cardY + 44);
-  icon.addColorStop(0, '#4f7cff');
-  icon.addColorStop(1, '#8b5cf6');
+  icon.addColorStop(0, '#3a3a3e');
+  icon.addColorStop(1, '#2c2c2e');
   ctx.fillStyle = icon;
   roundRect(ctx, W / 2 - 114, cardY + 14, 32, 32, 9);
   ctx.fill();
@@ -527,11 +510,8 @@ export function renderCover(widthPt, heightPt, scale) {
   ctx.font = `400 12px ${SYSTEM_FONT}`;
   ctx.fillText('拖动展开，看看里面', W / 2 - 70, cardY + 47);
 
-  // bottom: "swipe" hint + home indicator
+  // bottom: home indicator
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.font = `500 12px ${SYSTEM_FONT}`;
-  ctx.fillText('Hinge →', W - 70, H / 2);
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   roundRect(ctx, W / 2 - 60 + 6, H - 26, 120, 5, 2.5);
   ctx.fill();

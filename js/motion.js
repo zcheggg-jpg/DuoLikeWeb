@@ -370,16 +370,19 @@ export class FoldController {
   update(dt) {
     if (this.debugTarget != null) {
       this.fold += (this.debugTarget - this.fold) * Math.min(1, dt * 12);
+      this.fold = clamp01(this.fold);
       return;
     }
     if (this.dragging) return; // pointer position is authoritative while held
-    // Underdamped while snapping (juicy hinge bounce), dead beat while tracking the slider.
-    const k = this.sliderActive ? 140 : 46;
-    const zeta = this.sliderActive ? 1.0 : 0.6;
+    // Slightly underdamped spring so the hinge feels weighted; near the hard
+    // stops the overshoot is <1% and the stops absorb it, so the phone settles
+    // flat instead of twitching past the fold.
+    const k = this.sliderActive ? 140 : 42;
+    const zeta = this.sliderActive ? 1.0 : 0.85;
     const c = 2 * Math.sqrt(k) * zeta;
     this.vel += (-k * (this.fold - this.target) - c * this.vel) * dt;
     this.fold += this.vel * dt;
-    if (this.fold < -0.04) { this.fold = -0.04; this.vel = Math.max(0, this.vel); }
-    if (this.fold > 1.04) { this.fold = 1.04; this.vel = Math.min(0, this.vel); }
+    if (this.fold <= 0) { this.fold = 0; if (this.vel < 0) this.vel = 0; }
+    if (this.fold >= 1) { this.fold = 1; if (this.vel > 0) this.vel = 0; }
   }
 }

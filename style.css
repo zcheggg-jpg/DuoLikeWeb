@@ -1,8 +1,8 @@
 :root {
-  --bg: #07070d;
-  --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
-  --glass-border: rgba(255, 255, 255, 0.16);
-  --accent: #4f7cff;
+  --bg: #0a0a0d;
+  --glass-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --accent: #0a84ff;
   --text: #ececf2;
 }
 
@@ -20,37 +20,11 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ambient backdrop: layered gradients + two drifting color orbs */
+/* ambient backdrop: near-black graphite with a barely-there studio vignette */
 body {
   background:
-    radial-gradient(1100px 640px at 72% -12%, #171d2e 0%, transparent 62%),
-    radial-gradient(900px 620px at 8% 112%, #191228 0%, transparent 58%),
+    radial-gradient(1300px 860px at 50% 12%, #151519 0%, rgba(21, 21, 25, 0) 62%),
     var(--bg);
-}
-
-.orb {
-  position: fixed;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 0;
-}
-.orb-a {
-  width: 44vw; height: 44vw; min-width: 380px; min-height: 380px;
-  left: -12vw; top: -14vw;
-  background: radial-gradient(circle at 35% 35%, rgba(79, 124, 255, 0.34), transparent 68%);
-  animation: drift 26s ease-in-out infinite alternate;
-}
-.orb-b {
-  width: 38vw; height: 38vw; min-width: 320px; min-height: 320px;
-  right: -10vw; bottom: -12vw;
-  background: radial-gradient(circle at 60% 60%, rgba(236, 72, 153, 0.26), transparent 66%);
-  animation: drift 32s ease-in-out infinite alternate-reverse;
-}
-@keyframes drift {
-  from { transform: translate3d(0, 0, 0) scale(1); }
-  to { transform: translate3d(6vw, 4vh, 0) scale(1.12); }
 }
 
 /* ---- Liquid Glass surfaces ---- */
@@ -172,13 +146,13 @@ body {
 .chip:hover { background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08)); }
 .chip:active { transform: scale(0.96); }
 .chip.accent {
-  background: linear-gradient(135deg, #5d86ff, #3f63e8);
+  background: linear-gradient(160deg, #2b95ff, #0a6fe8);
   border: 1px solid rgba(255, 255, 255, 0.22);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 8px 26px rgba(79, 124, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 22px rgba(10, 111, 232, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
-.chip.accent:hover { background: linear-gradient(135deg, #6b91ff, #4a6cf0); }
+.chip.accent:hover { background: linear-gradient(160deg, #3b9fff, #1179f2); }
 
 .chip.manual { cursor: default; }
 .chip.manual span { color: rgba(255, 255, 255, 0.6); }

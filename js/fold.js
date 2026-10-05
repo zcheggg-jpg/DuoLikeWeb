@@ -124,6 +124,7 @@ uniform sampler2D uCover;   // cover screen, 390 x 844 pt
 uniform vec2  uSize;        // (780, 844) pt
 uniform float uScale;
 uniform float uFold;        // fold angle, radians: 0 = fully open, PI = fully folded
+uniform float uFoldVel;     // angular velocity of the fold, rad/s (drives the glass sheen)
 uniform float uEyeX;
 uniform float uEyeDist;
 
@@ -143,9 +144,10 @@ float sdRoundBox(vec2 p, vec2 b, float rTR, float rBR, float rBL, float rTL) {
 void main() {
     vec2 position = vec2(gl_FragCoord.x, uScale * uSize.y - gl_FragCoord.y) / uScale;
 
-    float phi = uFold;
+    float phi = clamp(uFold, 0.0, 3.14159265);
     float c = cos(phi);
     float s = sin(phi);
+    float motion = clamp(abs(uFoldVel) * 0.5, 0.0, 1.0);
     vec3 eye = vec3(uEyeX, uSize.y * 0.5, uEyeDist);
     // The canvas is a viewport centered on the eye, not plane coordinates:
     // as the camera pans to keep the half-open phone centered, the plane
@@ -172,8 +174,11 @@ void main() {
     vec3 col = vec3(0.0);
     float alpha = 0.0;
 
-    // Leaf wins depth ties when it has folded past vertical (it lies on top of the base).
-    if (leafHit && (tLeaf < 1.0 - 1e-4 || c < 0.0)) {
+    // Depth: the leaf wins when it is strictly in front, when it has folded past
+    // vertical (lying on top of the base), or when the pixel is beyond the hinge
+    // where the base half does not exist at all — otherwise at phi = 0 (fully
+    // open, exactly coplanar) the right half of the phone would vanish.
+    if (leafHit && (tLeaf < 1.0 - 1e-4 || plane.x > HALF_W || c < 0.0)) {
         vec2 uv;
         if (c > 0.0) {
             // Front face: inner content is glued to the leaf; at phi = 0 it lines up
@@ -181,20 +186,21 @@ void main() {
             uv = vec2(HALF_W + d, yLeaf) / uSize;
             vec3 c3 = texture(uInner, uv, clamp(log2(1.0 / max(c, 0.12)), 0.0, 4.0)).rgb;
             float x01 = d / HALF_W;
-            c3 *= 1.0 - 0.20 * s * x01;
-            // a specular band sweeps across the glass as it rotates
-            float band = HALF_W * (0.18 + 0.82 * clamp(1.0 - phi / 1.5707963, 0.0, 1.0));
-            c3 += vec3(exp(-pow((d - band) / 34.0, 2.0)) * 0.30 * s);
+            c3 *= 1.0 - 0.10 * (1.0 - c) * x01;
+            // A soft sheen sweeps across the glass while it moves, and rests as a
+            // barely-there ambient reflection when the phone is still.
+            float band = HALF_W * (0.22 + 0.78 * clamp(1.0 - phi / 1.5707963, 0.0, 1.0));
+            c3 += vec3(exp(-pow((d - band) / 52.0, 2.0)) * (0.03 + 0.22 * motion) * (0.3 + 0.7 * s));
             col = c3;
-            col *= 1.0 - 0.20 * exp(-pow(d / 3.5, 2.0));  // hinge groove on the leaf side
+            col *= 1.0 - 0.14 * exp(-pow(d / 3.5, 2.0));  // hinge groove on the leaf side
         } else {
             // Back face: the cover screen, glued mirrored (its left edge is the leaf's free edge).
             uv = vec2((HALF_W - d) / HALF_W, yLeaf / uSize.y);
             vec3 c3 = texture(uCover, uv, clamp(log2(1.0 / max(-c, 0.12)), 0.0, 4.0)).rgb;
-            c3 *= 1.0 - 0.12 * s;
-            c3 += vec3(exp(-pow((d - HALF_W * 0.55) / 70.0, 2.0)) * 0.08 * s);
+            c3 *= 1.0 - 0.05 * s;
+            c3 += vec3(exp(-pow((d - HALF_W * 0.5) / 90.0, 2.0)) * 0.07 * motion);
             col = c3;
-            col *= 1.0 - 0.16 * exp(-pow((HALF_W - d) / 3.5, 2.0));  // groove at the hinge edge
+            col *= 1.0 - 0.12 * exp(-pow((HALF_W - d) / 3.5, 2.0));  // groove at the hinge edge
         }
         // leaf silhouette + bezel
         vec2 lp = vec2(d - HALF_W * 0.5, yLeaf - uSize.y * 0.5);
@@ -210,12 +216,12 @@ void main() {
             col = texture(uInner, plane / uSize).rgb;
             col *= mix(1.0, 0.10, smoothstep(-7.0, -1.0, sdB));
             // permanent crease shading at the hinge
-            col *= 1.0 - 0.10 * exp(-pow((plane.x - HALF_W) / 9.0, 2.0));
+            col *= 1.0 - 0.08 * exp(-pow((plane.x - HALF_W) / 9.0, 2.0));
             // the folded leaf hovers over the base and casts a soft shadow on it
             if (c < 0.0) {
                 float edge = HALF_W * (1.0 + c);
-                float sh = smoothstep(edge - 26.0, edge + 12.0, plane.x);
-                col *= 1.0 - 0.5 * sh * s;
+                float sh = smoothstep(edge - 34.0, edge + 16.0, plane.x);
+                col *= 1.0 - 0.38 * sh * s;
             }
         }
     }
@@ -262,6 +268,7 @@ export class FoldRenderer {
       size: gl.getUniformLocation(this.duoProgram, 'uSize'),
       scale: gl.getUniformLocation(this.duoProgram, 'uScale'),
       fold: gl.getUniformLocation(this.duoProgram, 'uFold'),
+      foldVel: gl.getUniformLocation(this.duoProgram, 'uFoldVel'),
       eyeX: gl.getUniformLocation(this.duoProgram, 'uEyeX'),
       eye: gl.getUniformLocation(this.duoProgram, 'uEyeDist'),
     };
@@ -356,8 +363,8 @@ export class FoldRenderer {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
-  /** Renders the Duo book-fold. phi: 0 = fully open, PI = fully folded. */
-  drawDuo(phi, eyeX) {
+  /** Renders the Duo book-fold. phi: 0 = fully open, PI = fully folded. foldVel: rad/s. */
+  drawDuo(phi, eyeX, foldVel = 0) {
     const gl = this.gl;
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -369,6 +376,7 @@ export class FoldRenderer {
     gl.uniform2f(this.duoUniforms.size, this.sizePt[0], this.sizePt[1]);
     gl.uniform1f(this.duoUniforms.scale, this.scale);
     gl.uniform1f(this.duoUniforms.fold, phi);
+    gl.uniform1f(this.duoUniforms.foldVel, foldVel);
     gl.uniform1f(this.duoUniforms.eyeX, eyeX);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }

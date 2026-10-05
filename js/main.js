@@ -183,7 +183,8 @@ function start() {
 
   window.addEventListener('resize', () => { lastLayerKey = ''; rebuildTextures(); });
 
-  // Debug / screenshot hooks.
+  // Debug / screenshot hooks. __renderOnce / __renderSettled draw synchronously,
+  // independent of rAF, so screenshots are correct even when the tab is throttled.
   window.__setTiltDeg = (deg) => tiltCtl.setDebugTilt(deg);
   window.__clearTilt = () => tiltCtl.clearDebugTilt();
   window.__setFold01 = (v) => foldCtl.setDebugFold(v);
@@ -191,6 +192,11 @@ function start() {
   window.__controller = tiltCtl;
   window.__foldController = foldCtl;
   window.__renderer = renderer;
+  window.__renderOnce = () => renderFrame(0.016);
+  window.__renderSettled = (steps = 240) => {
+    for (let i = 0; i < steps; i++) foldCtl.update(1 / 60);
+    renderFrame(0.016);
+  };
 
   rebuildTextures();
   panel.hidden = false;
@@ -198,22 +204,26 @@ function start() {
   showHint(hintFor(tiltCtl.mode, appMode));
 
   let lastT = performance.now();
-  const loop = (now) => {
-    const dt = Math.min(0.05, (now - lastT) / 1000);
-    lastT = now;
+  const renderFrame = (dt) => {
     if (appMode === 'duo') {
       foldCtl.update(dt);
       const phi = Math.PI * (1 - foldCtl.fold);
+      const foldVel = -Math.PI * foldCtl.vel; // d(phi)/dt, rad/s
       // keep the phone centered: the camera pans with the device's visual span
       const right = phi < Math.PI / 2 ? COVER_SIZE.w * (1 + Math.cos(phi)) : COVER_SIZE.w;
       const targetEyeX = right / 2;
       renderer.eyeX = (renderer.eyeX ?? targetEyeX) + (targetEyeX - (renderer.eyeX ?? targetEyeX)) * Math.min(1, dt * 7);
-      renderer.drawDuo(phi, renderer.eyeX);
+      renderer.drawDuo(phi, renderer.eyeX, foldVel);
       syncFoldUI();
     } else {
       tiltCtl.update(dt);
       renderer.draw(tiltCtl.angle);
     }
+  };
+  const loop = (now) => {
+    const dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+    renderFrame(dt);
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);

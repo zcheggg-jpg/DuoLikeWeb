@@ -57,9 +57,12 @@ const SMOOTHING = 0.7;           // fraction of remaining error closed per sampl
 const PREDICTION_INTERVAL = 0.04; // s of gyro extrapolation to cover sensor+display latency
 const MAX_ANGLE = 88 * DEG;
 
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
 export class TiltController {
   constructor(canvas) {
     this.canvas = canvas;
+    this.enabled = true;   // main.js toggles this per UI mode
     this.angle = 0;        // radians, what the renderer should show now
     this.mode = 'desktop'; // flips to 'sensor' on the first valid orientation event
     this.onModeChange = null;
@@ -111,6 +114,7 @@ export class TiltController {
 
   #bindSensor() {
     window.addEventListener('deviceorientation', (e) => {
+      if (!this.enabled) return;
       if (e.alpha == null && e.beta == null && e.gamma == null) return;
       if (!this.sensorSeen) {
         this.sensorSeen = true;
@@ -159,13 +163,14 @@ export class TiltController {
     const maxDrag = 60 * DEG;
 
     el.addEventListener('pointerdown', (e) => {
-      if (this.mode === 'sensor') return;
+      if (!this.enabled || this.mode === 'sensor') return;
       this.dragging = true;
       el.classList.add('dragging');
       try { el.setPointerCapture(e.pointerId); } catch { /* synthetic or already-released pointer */ }
       this.#dragTo(e);
     });
     el.addEventListener('pointermove', (e) => {
+      if (!this.enabled) return;
       if (this.dragging) { this.#dragTo(e); return; }
       if (this.mode === 'sensor' || this.sliderActive || this.debugTarget != null) return;
       // Flick detection: a fast horizontal mouse sweep "shakes" the glass.
@@ -201,7 +206,7 @@ export class TiltController {
 
   #bindKeys() {
     const apply = () => {
-      if (this.mode === 'sensor' || this.sliderActive || this.debugTarget != null) return;
+      if (!this.enabled || this.mode === 'sensor' || this.sliderActive || this.debugTarget != null) return;
       this.target = (this.keyRight ? 50 * DEG : 0) - (this.keyLeft ? 50 * DEG : 0);
     };
     window.addEventListener('keydown', (e) => {
@@ -254,5 +259,127 @@ export class TiltController {
     this.vel += (-k * (this.angle - this.target) - c * this.vel) * dt;
     this.angle += this.vel * dt;
     this.angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, this.angle));
+  }
+}
+
+// Book-fold control for the Duo mode: fold in [0, 1], 0 = fully folded, 1 = fully
+// open. Dragging follows the pointer; a release flick snaps the hinge open or shut
+// with an underdamped spring, like a real folding-phone hinge.
+export class FoldController {
+  #startX = 0;
+  #startFold = 0;
+  #dragVel = 0;
+  #lastMoveT = 0;
+
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.enabled = false;
+    this.fold = 0;        // displayed state
+    this.target = 0;      // rest target the spring chases
+    this.vel = 0;
+    this.dragging = false;
+    this.sliderActive = false;
+    this.debugTarget = null;
+    this.keyLeft = false;
+    this.keyRight = false;
+    this.#startX = 0;
+    this.#startFold = 0;
+    this.#dragVel = 0;
+    this.#lastMoveT = 0;
+    this.onRestChange = null; // (isOpen) -> void, for the open/close button label
+
+    this.#bindPointer();
+    this.#bindWheel();
+    this.#bindKeys();
+  }
+
+  get isOpenRest() { return this.target > 0.5; }
+
+  setTarget(v) {
+    this.target = clamp01(v);
+    this.onRestChange && this.onRestChange(this.isOpenRest);
+  }
+
+  toggle() {
+    this.setTarget(this.fold > 0.5 ? 0 : 1);
+  }
+
+  #bindPointer() {
+    const el = this.canvas;
+    el.addEventListener('pointerdown', (e) => {
+      if (!this.enabled) return;
+      this.dragging = true;
+      this.#startX = e.clientX;
+      this.#startFold = this.fold;
+      this.#dragVel = 0;
+      this.#lastMoveT = performance.now();
+      el.classList.add('dragging');
+      try { el.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!this.enabled || !this.dragging) return;
+      const rect = el.getBoundingClientRect();
+      const next = clamp01(this.#startFold + (e.clientX - this.#startX) / (rect.width * 0.8));
+      const now = performance.now();
+      const dt = (now - this.#lastMoveT) / 1000;
+      if (dt > 0 && dt < 0.15) this.#dragVel = 0.6 * this.#dragVel + 0.4 * ((next - this.fold) / dt);
+      else if (dt >= 0.15) this.#dragVel = 0;
+      this.#lastMoveT = now;
+      this.fold = next;
+    });
+    const release = () => {
+      if (!this.dragging) return;
+      this.dragging = false;
+      el.classList.remove('dragging');
+      // flick: a fast swipe snaps the hinge; otherwise spring to the nearer rest
+      if (this.#dragVel > 1.1) this.setTarget(1);
+      else if (this.#dragVel < -1.1) this.setTarget(0);
+      else this.setTarget(this.fold > 0.5 ? 1 : 0);
+    };
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+  }
+
+  #bindWheel() {
+    this.canvas.addEventListener('wheel', (e) => {
+      if (!this.enabled) return;
+      e.preventDefault();
+      this.fold = clamp01(this.fold - e.deltaY / 900);
+      this.setTarget(this.fold);
+    }, { passive: false });
+  }
+
+  #bindKeys() {
+    window.addEventListener('keydown', (e) => {
+      if (!this.enabled || this.sliderActive || this.debugTarget != null) return;
+      if (e.key === 'ArrowRight') { this.setTarget(1); }
+      if (e.key === 'ArrowLeft') { this.setTarget(0); }
+    });
+  }
+
+  setManual(v01) {
+    this.sliderActive = true;
+    this.setTarget(clamp01(v01));
+  }
+
+  endManual() { this.sliderActive = false; }
+
+  setDebugFold(v01) { this.debugTarget = clamp01(v01); }
+  clearDebugFold() { this.debugTarget = null; }
+
+  update(dt) {
+    if (this.debugTarget != null) {
+      this.fold += (this.debugTarget - this.fold) * Math.min(1, dt * 12);
+      return;
+    }
+    if (this.dragging) return; // pointer position is authoritative while held
+    // Underdamped while snapping (juicy hinge bounce), dead beat while tracking the slider.
+    const k = this.sliderActive ? 140 : 46;
+    const zeta = this.sliderActive ? 1.0 : 0.6;
+    const c = 2 * Math.sqrt(k) * zeta;
+    this.vel += (-k * (this.fold - this.target) - c * this.vel) * dt;
+    this.fold += this.vel * dt;
+    if (this.fold < -0.04) { this.fold = -0.04; this.vel = Math.max(0, this.vel); }
+    if (this.fold > 1.04) { this.fold = 1.04; this.vel = Math.min(0, this.vel); }
   }
 }
